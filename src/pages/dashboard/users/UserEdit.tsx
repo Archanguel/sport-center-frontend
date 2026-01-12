@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState, useMemo, useCallback } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { getUser, updateUserBranches } from "../../../api/users"
-import { getBranches } from "../../../api/branches"
+import { getAllBranches } from "../../../api/branches"
 import type { UserDetail } from "../../../types/user"
 import type { Branch } from "../../../types/branch"
 import { useForm } from "../../../hooks/useForm"
@@ -40,7 +40,7 @@ export default function UserEdit() {
       .call(async () => {
         const [u, b] = await Promise.all([
           getUser(Number(id)),
-          getBranches(),
+          getAllBranches(),
         ])
 
         setUser(u)
@@ -147,7 +147,7 @@ export default function UserEdit() {
           </Button>
           <Tooltip disableHoverableContent>
             <TooltipTrigger asChild>
-              <Button variant="ghost" className={saveApi.loading ? "cursor-default" : "cursor-pointer"} disabled={!dirty || saveApi.loading}>
+              <Button variant="ghost" className={!dirty || saveApi.loading ? "cursor-default" : "cursor-pointer"} disabled={!dirty || saveApi.loading}>
                 {saveApi.loading ? <Spinner size={16} /> : "Guardar"}
               </Button>
             </TooltipTrigger>

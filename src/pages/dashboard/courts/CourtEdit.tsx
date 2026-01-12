@@ -1,7 +1,7 @@
 import { useEffect, useState, FormEvent } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { getCourt, updateCourt } from "../../../api/courts"
-import { getBranches } from "../../../api/branches"
+import { getAllBranches } from "../../../api/branches"
 import type { Branch } from "../../../types/branch"
 import type { CourtForm } from "../../../types/court"
 
@@ -27,7 +27,7 @@ export default function CourtEdit() {
     ;(async () => {
       const [court, branchesData] = await Promise.all([
         getCourt(Number(id)),
-        getBranches()
+        getAllBranches()
       ])
 
       setBranches(branchesData)

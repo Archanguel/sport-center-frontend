@@ -1,12 +1,19 @@
-import { useEffect, useCallback, useState } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { getBranches, deleteBranch } from "../../../api/branches"
-import type { Branch } from "../../../types/branch"
-import { Button } from "../../../components/ui/button"
-import { ConfirmDialog } from "../../../components/ui/confirmDialog"
 import { FaEdit, FaEye, FaPlus, FaTrash } from "react-icons/fa"
-import { useApi } from "../../../hooks/useApi"
 import { toast } from "sonner"
+import { ConfirmDialog } from "../../../components/ui/confirmDialog"
+
+import { getBranches, deleteBranch } from "../../../api/branches"
+import type {
+  BranchListItem,
+  BranchFilters,
+  BranchPageResponse,
+  BranchSortState,
+} from "../../../types/branch"
+
+import { useApi } from "../../../hooks/useApi"
+import { Button } from "../../../components/ui/button"
 import {
   Table,
   TableHeader,
@@ -16,172 +23,244 @@ import {
   TableCell,
 } from "../../../components/ui/table"
 import { SkeletonPage } from "../../../components/ui/skeletonPage"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "../../../components/ui/tooltip"
 
 export default function BranchList() {
   const navigate = useNavigate()
-  const api = useApi<Branch[]>()
+  const api = useApi<BranchPageResponse>()
   const actionApi = useApi<void>()
 
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
+  const [filters, setFilters] = useState<BranchFilters>({
+    name: "",
+    address: "",
+  })
 
-  /*const [branches, setBranches] = useState<Branch[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [sort, setSort] = useState<BranchSortState>({
+    key: "name",
+    direction: "asc",
+  })
 
-  async function load() {
-    setLoading(true)
-    setError(null)
+  const [page, setPage] = useState(0)
+  const size = 10
 
-    try {
-      const data: Branch[] = await getBranches()
-      setBranches(data)
-    } catch (err: any) {
-      setError(err?.message || "Error cargando sucursales")
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const nameRefForRequest = useRef<string>("")
 
-      if ([401, 403].includes(err?.response?.status)) {
-        localStorage.removeItem("token")
-        navigate("/auth/login")
-      }
-    } finally {
-      setLoading(false)
+  /* ======================
+     LOAD CON DEBOUNCE
+  ====================== */
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    debounceRef.current = setTimeout(() => {
+      nameRefForRequest.current = filters.name
+
+      api.call(() =>
+        getBranches({
+          page,
+          size,
+          name: filters.name || undefined,
+          address: filters.address || undefined,
+          sort: `${sort.key},${sort.direction}`,
+        })
+      )
+    }, 300) 
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
     }
+  }, [filters.name, filters.address])
+
+  /* ======================
+     LOAD SIN DEBOUNCE
+  ====================== */
+  useEffect(() => {
+    if (nameRefForRequest.current !== filters.name) return
+
+    api.call(() =>
+      getBranches({
+        page,
+        size,
+        name: filters.name || undefined,
+        address: filters.address || undefined,
+        sort: `${sort.key},${sort.direction}`,
+      })
+    )
+  }, [page, sort.key, sort.direction])
+
+  /* ======================
+     SORT
+  ====================== */
+  function toggleSort(key: BranchSortState["key"]) {
+    setSort(prev => ({
+      key,
+      direction:
+        prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }))
+    setPage(0)
   }
 
-  useEffect(() => {
-    load()
-  }, [])*/
+  /* ======================
+     ACTIONS
+  ====================== */
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
 
-  useEffect(() => {
-    api.call(() => getBranches())
-  }, [])
-
-  /*async function handleDelete(id: number) {
-    if (!confirm("Borrar sucursal?")) return
-    try {
-      await deleteBranch(id)
-      load()
-    } catch (err: any) {
-      alert("Error borrando: " + (err?.response?.data || err.message))
-    }
-  }*/
-
-  const handleView = useCallback(
-    (id: number) => navigate(`/branches/view/${id}`),
-    [navigate]
-  )
-
-  const handleEdit = useCallback(
-    (id: number) => navigate(`/branches/edit/${id}`),
-    [navigate]
-  )
-
-  const handleRemove = useCallback((id: number) => {
+  const handleDelete = useCallback((id: number) => {
     setConfirmDeleteId(id)
   }, [])
 
-  const confirmRemove = useCallback(async () => {
+  const confirmDelete = useCallback(async () => {
     if (!confirmDeleteId) return
     try {
       await actionApi.call(() => deleteBranch(confirmDeleteId))
       toast.success("Sucursal eliminada")
-      api.call(() => getBranches())
+
+      api.call(() =>
+        getBranches({
+          page,
+          size,
+          name: filters.name || undefined,
+          address: filters.address || undefined,
+          sort: `${sort.key},${sort.direction}`,
+        })
+      )
       setConfirmDeleteId(null)
     } catch {
       toast.error("Error al eliminar sucursal")
     }
-  }, [confirmDeleteId])
+  }, [confirmDeleteId, page, filters, sort])
 
-  if (api.loading && !api.data) return <SkeletonPage />
+  if ((api.loading && !api.data)) return <SkeletonPage />
 
-  /*return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-xl font-bold">Sucursales</h1>
-        <Button variant="ghost" onClick={() => navigate(`/branches/create`)}>
-          <FaPlus />
-        </Button>
-      </div>
-
-      {branches.length === 0 && <div>No hay sucursales</div>}
-
-      <table className="w-full border">
-        <thead>
-          <tr className="border-b">
-            <th className="text-left p-2">Nombre</th>
-            <th className="text-left p-2">Calle</th>
-            <th className="text-left p-2">Teléfono</th>
-            <th className="text-left p-2">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {branches.map(b => (
-            <tr key={b.id} className="border-b">
-              <td className="p-2">{b.name}</td>
-              <td className="p-2">{b.address}</td>
-              <td className="p-2">{b.phone}</td>
-
-              <td className="flex gap-2">
-                <Button variant="ghost" onClick={() => navigate(`/branches/view/${b.id}`)}>
-                  <FaEye />
-                </Button>
-
-                <Button variant="ghost" onClick={() => navigate(`/branches/edit/${b.id}`)}>
-                  <FaEdit />
-                </Button>
-
-                <Button variant="ghost" onClick={() => handleDelete(b.id)}>
-                  <FaTrash />
-                </Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )*/
   return (
     <div className="p-4 flex flex-col">
+      {/* HEADER */}
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-xl font-bold">Sucursales</h1>
-        <Button variant="ghost" onClick={() => navigate(`/branches/create`)}>
-          <FaPlus />
-        </Button>
+        <Tooltip disableHoverableContent>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" onClick={() => navigate("/branches/create")}>
+              <FaPlus />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Crear</TooltipContent>
+        </Tooltip>
       </div>
 
+      {/* FILTROS */}
+      <div className="flex gap-4 mb-4">
+        <input
+          className="border p-2"
+          placeholder="Nombre"
+          value={filters.name}
+          onChange={e => {
+            setFilters(f => ({ ...f, name: e.target.value }))
+            setPage(0)
+          }}
+        />
+
+        <input
+          className="border p-2"
+          placeholder="Dirección"
+          value={filters.address}
+          onChange={e => {
+            setFilters(f => ({ ...f, address: e.target.value }))
+            setPage(0)
+          }}
+        />
+      </div>
+
+      {/* TABLA */}
       <div className="flex-1 overflow-auto min-h-[76vh]">
         <Table>
           <TableHeader>
             <TableRow className="bg-accent">
-              <TableHead width="30%">Nombre</TableHead>
-              <TableHead width="40%">Dirección</TableHead>
-              <TableHead width="20%">Teléfono</TableHead>
+              <TableHead
+                className="cursor-pointer"
+                width="40%"
+                onClick={() => toggleSort("name")}
+              >
+                Nombre
+              </TableHead>
+              <TableHead
+                className="cursor-pointer"
+                width="40%"
+                onClick={() => toggleSort("address")}
+              >
+                Dirección
+              </TableHead>
+              <TableHead width="10%">Teléfono</TableHead>
               <TableHead width="10%">Acciones</TableHead>
             </TableRow>
           </TableHeader>
 
           <TableBody>
-            {api.data?.map(b => (
-              <TableRow key={b.id}>
+            {api.data?.content.map(b => (
+              <TableRow key={b.id} className="border-t border-border hover:[background-color:hsl(var(--secondary))]">
                 <TableCell>{b.name}</TableCell>
-                <TableCell>{b.address || "-"}</TableCell>
-                <TableCell>{b.phone || "-"}</TableCell>
+                <TableCell>{b.address ?? "-"}</TableCell>
+                <TableCell>{b.phone ?? "-"}</TableCell>
                 <TableCell>
                   <div className="flex gap-1">
-                    <Button variant="ghost" onClick={() => handleView(b.id)}>
-                      <FaEye />
-                    </Button>
-                    <Button variant="ghost" onClick={() => handleEdit(b.id)}>
-                      <FaEdit />
-                    </Button>
-                    <Button variant="ghost" onClick={() => handleRemove(b.id)}>
-                      <FaTrash />
-                    </Button>
+                    <Tooltip disableHoverableContent>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" onClick={() => navigate(`/branches/view/${b.id}`)}>
+                          <FaEye />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Ver</TooltipContent>
+                    </Tooltip>
+
+                    <Tooltip disableHoverableContent>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" onClick={() => navigate(`/branches/edit/${b.id}`)}>
+                          <FaEdit />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Editar</TooltipContent>
+                    </Tooltip>
+
+                    <Tooltip disableHoverableContent>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" onClick={() => setConfirmDeleteId(b.id)}>
+                          <FaTrash />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Eliminar</TooltipContent>
+                    </Tooltip>
                   </div>
                 </TableCell>
               </TableRow>
             ))}
-          </TableBody>
+          </TableBody> 
         </Table>
+      </div>
+
+      {/* PAGINADO */}
+      <div className="flex justify-end gap-2 mt-4">
+        <Button
+          variant="ghost"
+          disabled={page === 0}
+          onClick={() => setPage(p => p - 1)}
+        >
+          Anterior
+        </Button>
+
+        <span className="self-center">
+          {page + 1} / {api.data?.totalPages ?? 1}
+        </span>
+
+        <Button
+          variant="ghost"
+          disabled={page + 1 >= (api.data?.totalPages ?? 1)}
+          onClick={() => setPage(p => p + 1)}
+        >
+          Siguiente
+        </Button>
       </div>
 
       <ConfirmDialog
@@ -190,7 +269,7 @@ export default function BranchList() {
         description="¿Estás seguro?"
         confirmText="Si"
         cancelText="No"
-        onConfirm={confirmRemove}
+        onConfirm={confirmDelete}
         onCancel={() => setConfirmDeleteId(null)}
       />
     </div>

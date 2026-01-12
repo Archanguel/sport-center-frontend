@@ -1,12 +1,25 @@
 import axiosClient from "./axiosClient"
-import type { Branch } from "../types/branch"
+import type { Branch, BranchListItem, BranchPageResponse } from "../types/branch"
 
-/*export interface Branch {
-  id: number
-  name: string
+export async function getBranches(params: {
+  page: number
+  size: number
+  name?: string
   address?: string
-  companyId: number
-}*/
+  sort?: string
+}): Promise<BranchPageResponse> {
+  const res = await axiosClient.get("/branches", { params })
+  return res.data
+}
+
+export async function getAllBranches(): Promise<Branch[]> {
+  const res = await axiosClient.get("/branches")
+  // The server may return either an array or a paginated object { content: Branch[], ... }
+  if (Array.isArray(res.data)) return res.data as Branch[]
+  if (res.data && Array.isArray(res.data.content)) return res.data.content as Branch[]
+  return []
+} 
+
 
 export interface CreateBranchData {
   name: string
@@ -14,10 +27,10 @@ export interface CreateBranchData {
   phone?: string
 }
 
-export async function getBranches(): Promise<Branch[]> {
+/*export async function getBranches(): Promise<Branch[]> {
   const res = await axiosClient.get<Branch[]>("/branches")
   return res.data
-}
+}*/
 
 export async function getBranch(id: number): Promise<Branch> {
   const res = await axiosClient.get<Branch>(`/branches/${id}`)

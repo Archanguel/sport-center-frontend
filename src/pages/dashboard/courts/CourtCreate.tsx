@@ -1,7 +1,7 @@
 import { useEffect, useState, FormEvent } from "react"
 import { useNavigate } from "react-router-dom"
 import { createCourt } from "../../../api/courts"
-import { getBranches } from "../../../api/branches"
+import { getAllBranches } from "../../../api/branches"
 import type { Branch } from "../../../types/branch"
 import type { CourtForm } from "../../../types/court"
 
@@ -20,7 +20,7 @@ export default function CourtCreate() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    getBranches().then(setBranches)
+    getAllBranches().then(setBranches)
   }, [])
 
   async function handleSubmit(e: FormEvent) {

@@ -115,7 +115,7 @@ export default function UserCreate() {
           </Button>
           <Tooltip disableHoverableContent>
             <TooltipTrigger asChild>
-              <Button variant="ghost" className={api.loading ? "cursor-default" : "cursor-pointer"} disabled={!isValid || api.loading}>
+              <Button variant="ghost" className={!isValid ||api.loading ? "cursor-default" : "cursor-pointer"} disabled={!isValid || api.loading}>
                 {api.loading ? <Spinner size={16} /> : "Crear"}
               </Button>
             </TooltipTrigger>

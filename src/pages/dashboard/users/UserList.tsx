@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { getUsers, removeUserFromCompany } from "../../../api/users"
-import { getBranches } from "../../../api/branches"
+import { getAllBranches } from "../../../api/branches"
 import type {
   SortState,
   UserFilters,
@@ -114,7 +114,7 @@ export default function UserList() {
   const usernameRefForRequest = useRef<string>("")
 
   useEffect(() => {
-    branchesApi.call(() => getBranches())
+    branchesApi.call(() => getAllBranches())
   }, [])
 
   useEffect(() => {

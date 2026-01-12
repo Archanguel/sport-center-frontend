@@ -1,10 +1,13 @@
-import { useState, FormEvent } from "react"
+import { useState, FormEvent, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { createBranch } from "../../../api/branches"
 import { Button } from "../../../components/ui/button"
 import { Spinner } from "../../../components/ui/spinner"
 import { toast } from "sonner"
 import { BranchForm } from "../../../types/branch"
+import { useConfirmUnload } from "../../../hooks/useConfirmUnload"
+import { ConfirmDialog } from "../../../components/ui/confirmDialog"
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../../components/ui/tooltip"
 
 export default function BranchCreate() {
   const [form, setForm] = useState<BranchForm>({
@@ -12,11 +15,24 @@ export default function BranchCreate() {
     address: "",
     phone: "",
   })
-  const [name, setName] = useState("")
-  const [address, setAddress] = useState("")
-  const [phone, setPhone] = useState("")
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+
+  const [confirmSave, setConfirmSave] = useState(false)
+  const [confirmCancel, setConfirmCancel] = useState(false)
+
+  const dirty = useMemo(() => {
+    return !!form.name || !!form.address || !!form.phone
+  }, [form])
+
+  useConfirmUnload(dirty)
+
+  const isValid = useMemo(() => form.name.trim() !== "", [form])
+
+  function handleCancel() {
+    if (dirty) setConfirmCancel(true)
+    else navigate("/branches")
+  }
 
   /*async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -31,9 +47,13 @@ export default function BranchCreate() {
       setLoading(false)
     }
   }*/
-  async function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    const { ...data } = form
+    setConfirmSave(true)
+  }
+
+  async function confirmSaveCreate() {
+    const data = form
     try {
       setLoading(true)
       await createBranch(data)
@@ -43,10 +63,8 @@ export default function BranchCreate() {
       alert("Error creando: " + (err?.response?.data || err.message))
     } finally {
       setLoading(false)
+      setConfirmSave(false)
     }
-    //const { branchId, ...data } = form
-    //await createCourt(data, branchId)
-    //navigate("/branches")
   }
 
   return (
@@ -78,21 +96,39 @@ export default function BranchCreate() {
         />
 
         <div className="flex gap-2">
-          <Button type="submit" disabled={loading}>
-            {loading ? <Spinner /> : "Crear"}
-          </Button>
-          <Button type="button" disabled={loading} onClick={() => navigate("/branches")}>
+          <Button type="button" disabled={loading} onClick={handleCancel} className={loading ? "cursor-default" : "cursor-pointer"}>
             {loading ? <Spinner /> : "Cancelar"}
           </Button>
-
-          {/*<button type="submit" className="bg-primary px-3 py-1">
-            Crear
-          </button>
-          <button type="button" className="px-3 py-1 border" onClick={() => navigate("/branches")}>
-            Cancelar
-          </button>*/}
+          <Tooltip disableHoverableContent>
+            <TooltipTrigger asChild>
+              <Button type="submit" disabled={!isValid || loading} className={!isValid || loading ? "cursor-default" : "cursor-pointer"}>
+                {loading ? <Spinner /> : "Crear"}
+              </Button>
+            </TooltipTrigger>
+            {!isValid && <TooltipContent>Falta el nombre</TooltipContent>}
+          </Tooltip>
         </div>
       </form>
+
+      <ConfirmDialog
+        open={confirmCancel}
+        title="Hay cambios sin guardar"
+        description="¿Querés salir igual?"
+        confirmText="Si"
+        cancelText="No"
+        onConfirm={() => navigate("/branches")}
+        onCancel={() => setConfirmCancel(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmSave}
+        title="Crear sucursal"
+        description="¿Estás seguro?"
+        confirmText="Si"
+        cancelText="No"
+        onConfirm={confirmSaveCreate}
+        onCancel={() => setConfirmSave(false)}
+      />
     </div>
   )
 }
