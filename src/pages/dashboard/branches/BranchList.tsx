@@ -45,7 +45,7 @@ export default function BranchList() {
   })
 
   const [page, setPage] = useState(0)
-  const size = 10
+  const size = 13
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nameRefForRequest = useRef<string>("")
